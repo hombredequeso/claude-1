@@ -7,7 +7,9 @@ confirmed with the user before anything is committed.
 
 ## Usage
 ```
-/commit
+/commit           # generate the message with Haiku (default)
+/commit sonnet    # override: use Sonnet instead, e.g. for a large or
+                   # unusually complicated diff
 ```
 
 ## Behavior
@@ -21,6 +23,12 @@ confirmed with the user before anything is committed.
    - Work solely from `git diff --staged` and repo conventions — it has no
      access to this session's conversation.
    - Return only the generated commit message as its final answer.
+
+   Pass `model: "haiku"` on this Agent call by default. Only pass
+   `model: "sonnet"` instead if the user explicitly asked for it this
+   invocation (e.g. ran `/commit sonnet`, or otherwise said the diff is
+   complex/worth the stronger model) — don't decide this heuristically from
+   the diff stat on your own.
 3. Present the returned message to the user verbatim and ask them to
    approve, edit, or cancel. Do not commit yet.
 4. On approval (as-is or with the user's edits):
