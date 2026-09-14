@@ -1,7 +1,7 @@
 import Koa from 'koa';
 import Router from '@koa/router';
 import { koaSwagger } from 'koa2-swagger-ui';
-import { openApiSpec } from './openapi.js';
+import { openApiSpec } from './openapi/openapi.js';
 
 // Only API endpoints go on this router, not the docs infrastructure
 // (/openapi.json, /docs) — that keeps `router.stack` a clean inventory of

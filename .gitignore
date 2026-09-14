@@ -2,7 +2,7 @@
 dist
 package-lock.json
 yarn.lock
-openapi.json
+openapi/openapi.json
 
 # Created by https://www.gitignore.io/api/node,macos
 

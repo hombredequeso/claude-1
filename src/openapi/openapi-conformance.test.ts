@@ -6,7 +6,7 @@ import * as openApiResponseValidatorModule from 'openapi-response-validator';
 // build with no "type" field, which TS under NodeNext resolves to the
 // whole module namespace rather than the class — cast around it.
 const OpenAPIResponseValidator = (openApiResponseValidatorModule as unknown as { default: any }).default;
-import { createApp } from './app.js';
+import { createApp } from '../app.js';
 import { openApiSpec } from './openapi.js';
 
 const toValidatorResponses = (responses: Record<string, any>) =>

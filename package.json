@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "vitest run",
-    "generate:openapi": "tsx src/generate-openapi.ts"
+    "generate:openapi": "tsx src/openapi/generate-openapi.ts"
   },
   "keywords": [],
   "author": "",

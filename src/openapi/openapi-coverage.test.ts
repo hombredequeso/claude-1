@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { router } from './app.js';
+import { router } from '../app.js';
 import { openApiSpec } from './openapi.js';
 import { getRegisteredRoutes } from './route-inventory.js';
 
