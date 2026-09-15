@@ -9,7 +9,10 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "vitest run",
-    "generate:openapi": "tsx src/openapi/generate-openapi.ts"
+    "test:output-json": "vitest --config ./vitest.machine.config.ts",
+    "generate:openapi": "tsx src/openapi/generate-openapi.ts",
+    "clean": "rm -rf ./dist/",
+    "test:server": "tsx scripts/server-test.mts"
   },
   "keywords": [],
   "author": "",
