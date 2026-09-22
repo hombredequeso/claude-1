@@ -1,7 +1,10 @@
 import Koa from 'koa';
 import Router from '@koa/router';
+import bodyParser from 'koa-bodyparser';
 import { koaSwagger } from 'koa2-swagger-ui';
 import { openApiSpec } from './openapi/openapi.js';
+import { createOrderStore } from './order/order-store.js';
+import { registerOrderRoutes } from './order/order-routes.js';
 
 // Only API endpoints go on this router, not the docs infrastructure
 // (/openapi.json, /docs) — that keeps `router.stack` a clean inventory of
@@ -30,46 +33,26 @@ router.get('/health', (ctx) => {
   ctx.body = 'ok';
 });
 
-/**
- * @openapi
- * /thing/{id}:
- *   get:
- *     summary: Get a thing
- *     description: Returns a thing identified by its id.
- *     tags:
- *       - Thing
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: The requested thing.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                 description:
- *                   type: string
- *               example:
- *                 id: abc123
- *                 description: thing abc123
- */
-router.get('/thing/:id', (ctx) => {
-  // if (ctx.params.id === '1') {
-  //   throw new Exception('something went wrong');
-  // }
-  ctx.status = 200;
-  ctx.body = { id: ctx.params.id, description: `thing ${ctx.params.id}` };
-});
+registerOrderRoutes(router, createOrderStore());
+
+type HttpError = Error & { status: number; expose: boolean };
+
+const isHttpError = (err: unknown): err is HttpError =>
+  err instanceof Error && 'status' in err && typeof (err as HttpError).status === 'number';
 
 export const createApp = () => {
   const app = new Koa();
+
+  app.use(async (ctx, next) => {
+    try {
+      await next();
+    } catch (err) {
+      const status = isHttpError(err) && err.status >= 400 && err.status < 500 ? err.status : 500;
+      const message = status < 500 && err instanceof Error ? err.message : 'An unexpected error occurred';
+      ctx.status = status;
+      ctx.body = { error: { code: status === 400 ? 'INVALID_REQUEST' : 'INTERNAL_ERROR', message } };
+    }
+  });
 
   app.use(async (ctx, next) => {
     if (ctx.path === '/openapi.json' && ctx.method === 'GET') {
@@ -79,6 +62,8 @@ export const createApp = () => {
     }
     await next();
   });
+
+  app.use(bodyParser());
 
   app.use(
     koaSwagger({
