@@ -4,7 +4,7 @@ export type OrderStore = {
   save: (order: Order) => void;
   findById: (id: string) => Order | null;
   list: (params: { limit: number; offset: number }) => { items: Order[]; total: number };
-};
+}
 
 // In-memory only — state does not survive process restart.
 export const createOrderStore = (): OrderStore => {

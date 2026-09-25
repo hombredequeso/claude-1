@@ -4,17 +4,17 @@ export type Order = {
   id: string;
   description: string;
   status: OrderStatus;
-};
+}
 
 export type CreateOrderInput = {
   description: string;
-};
+}
 
 export type OrderError = {
   kind: 'IllegalStatusTransition';
   from: OrderStatus;
   to: OrderStatus;
-};
+}
 
 export type CreateOrderResult =
   | { kind: 'Success'; order: Order }

@@ -5,15 +5,28 @@ import * as openApiResponseValidatorModule from 'openapi-response-validator';
 // The package's shipped .d.ts declares an ESM `export default` for a CJS
 // build with no "type" field, which TS under NodeNext resolves to the
 // whole module namespace rather than the class — cast around it.
-const OpenAPIResponseValidator = (openApiResponseValidatorModule as unknown as { default: any }).default;
+type ResponseValidator = {
+  validateResponse: (status: string, body: unknown) => unknown;
+}
+type ResponseValidatorConstructor = new (args: {
+  responses: Record<string, { schema: unknown }>;
+}) => ResponseValidator;
+
+const OpenAPIResponseValidator = (
+  openApiResponseValidatorModule as unknown as { default: ResponseValidatorConstructor }
+).default;
 import { createApp } from '../app.js';
 import { openApiSpec } from './openapi.js';
 
-const toValidatorResponses = (responses: Record<string, any>) =>
+type DocumentedResponse = {
+  content?: Record<string, { schema?: unknown }>;
+}
+
+const toValidatorResponses = (responses: Record<string, DocumentedResponse>) =>
   Object.fromEntries(
     Object.entries(responses).map(([status, response]) => {
       const content = response.content ?? {};
-      const [firstMediaType] = Object.values(content) as Array<{ schema?: unknown }>;
+      const [firstMediaType] = Object.values(content);
       return [status, { schema: firstMediaType?.schema ?? {} }];
     })
   );
