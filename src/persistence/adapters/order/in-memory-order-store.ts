@@ -1,13 +1,8 @@
-import type { Order } from './order.js';
-
-export type OrderStore = {
-  save: (order: Order) => void;
-  findById: (id: string) => Order | null;
-  list: (params: { limit: number; offset: number }) => { items: Order[]; total: number };
-}
+import type { Order } from '../../../domain/order/order.js';
+import type { OrderStore } from '../../ports/order-store.js';
 
 // In-memory only — state does not survive process restart.
-export const createOrderStore = (): OrderStore => {
+export const createInMemoryOrderStore = (): OrderStore => {
   const orders = new Map<string, Order>();
 
   const save = (order: Order): void => {

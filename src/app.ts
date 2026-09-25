@@ -3,8 +3,8 @@ import Router from '@koa/router';
 import bodyParser from 'koa-bodyparser';
 import { koaSwagger } from 'koa2-swagger-ui';
 import { openApiSpec } from './openapi/openapi.js';
-import { createOrderStore } from './order/order-store.js';
-import { registerOrderRoutes } from './order/order-routes.js';
+import { createInMemoryOrderStore } from './persistence/adapters/order/in-memory-order-store.js';
+import { registerOrderRoutes } from './routes/order/order-routes.js';
 
 // Only API endpoints go on this router, not the docs infrastructure
 // (/openapi.json, /docs) — that keeps `router.stack` a clean inventory of
@@ -33,7 +33,7 @@ router.get('/health', (ctx) => {
   ctx.body = 'ok';
 });
 
-registerOrderRoutes(router, createOrderStore());
+registerOrderRoutes(router, createInMemoryOrderStore());
 
 type HttpError = Error & { status: number; expose: boolean };
 
