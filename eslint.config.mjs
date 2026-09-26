@@ -16,6 +16,7 @@ export default defineConfig(
     ],
     rules: {
       '@typescript-eslint/consistent-type-definitions': ['error', 'type'],
+      complexity: ['warn', 10],
     },
   },
   {
