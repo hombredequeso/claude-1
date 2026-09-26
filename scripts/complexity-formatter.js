@@ -1,5 +1,5 @@
-// ESLint formatter that prints a per-function complexity report from the `complexity` rule's
-// messages. ESLint only names declared functions and methods, so this recovers names for arrow
+// ESLint formatter that prints a per-function complexity report, as JSON, from the `complexity`
+// rule's messages. ESLint only names declared functions and methods, so this recovers names for arrow
 // functions and function expressions from the surrounding code (e.g. `const createApp = () =>`).
 //
 // Usage: eslint --rule '{"complexity":["warn",{"max":0}]}' -f ./scripts/complexity-formatter.js src
@@ -65,34 +65,22 @@ const toRows = (result, cwd) => {
     .map((message) => {
       const [, kind, complexity] = COMPLEXITY_PATTERN.exec(message.message) ?? ['', message.message, '0'];
       return {
-        complexity: Number(complexity),
-        location: `${file}:${message.line}:${message.column}`,
-        kind,
         name: result.source === undefined ? '(unknown)' : nameFunctionAt(sourceFile, message.line, message.column),
+        kind,
+        complexity: Number(complexity),
+        file,
+        line: message.line,
+        column: message.column,
       };
     });
 };
 
 const byComplexityThenLocation = (a, b) =>
-  b.complexity - a.complexity || a.location.localeCompare(b.location, undefined, { numeric: true });
-
-const renderTable = (rows) => {
-  const headings = { complexity: 'Complexity', location: 'Location', name: 'Function', kind: 'Kind' };
-  const columns = ['complexity', 'location', 'name', 'kind'];
-  const widths = columns.map((column) =>
-    rows.reduce((width, row) => Math.max(width, String(row[column]).length), headings[column].length),
-  );
-  const renderLine = (cells) => cells.map((cell, i) => String(cell).padEnd(widths[i])).join('  ').trimEnd();
-  return [renderLine(columns.map((column) => headings[column])), renderLine(widths.map((width) => '-'.repeat(width)))]
-    .concat(rows.map((row) => renderLine(columns.map((column) => row[column]))))
-    .join('\n');
-};
+  b.complexity - a.complexity || a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column;
 
 const formatComplexityReport = (results, context) => {
   const rows = results.flatMap((result) => toRows(result, context.cwd)).sort(byComplexityThenLocation);
-  return rows.length === 0
-    ? 'No complexity results. Run with --rule \'{"complexity":["warn",{"max":0}]}\' to report every function.'
-    : `${renderTable(rows)}\n\n${rows.length} functions analyzed.`;
+  return JSON.stringify(rows, null, 2);
 };
 
 export default formatComplexityReport;
