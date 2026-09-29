@@ -20,3 +20,11 @@ and explain, rather than making the change:
 
 Then give the option to provide an alternative solution before proceeding with any change to the
 completed layer.
+
+## Stubs and result types
+
+When stubbing functions before tests are written, type the return as the success case only, unless
+the specification states that the operation can fail. Don't add speculative error cases.
+
+If implementation reveals a failure case not anticipated by the stub, widen the return type to a
+union expressing every possible outcome, and add tests covering each new case.

@@ -1,4 +1,4 @@
-export type OrderStatus = 'Created' | 'Cancelled' | 'Completed';
+type OrderStatus = 'Created' | 'Cancelled' | 'Completed';
 
 export type Order = {
   id: string;

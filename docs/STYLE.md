@@ -30,6 +30,8 @@
 ## Errors
 
 - Do not throw exceptions on errors. Instead, use algebraic types (discriminated unions) to return all possible error cases as values alongside the success case.
+- A function's return type should express only the outcomes it can actually produce. Don't include
+  an error case in a result union unless the function can return it.
 
 ## Discriminated unions
 
