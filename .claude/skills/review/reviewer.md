@@ -15,8 +15,13 @@ filter from the review target:
 | a branch name `<b>` | `git merge-base main <b>` | `<b>` |
 | a PR number `<n>` | `gh pr view <n> --json baseRefName,headRefOid`, then `git fetch origin <baseRefName> pull/<n>/head`, base = `git merge-base origin/<baseRefName> <headRefOid>` | `<headRefOid>` |
 | a file or directory path `<p>` | as for none | working tree, with path filter `<p>` |
+| `staged` | `HEAD` | a temporary commit of the index: `git commit-tree $(git write-tree) -p HEAD -m staged` (prints its sha) |
 
 Don't create or switch branches, and don't stash or otherwise modify the working tree.
+
+The literal target `staged` always means the staged mode, even if a branch of that name exists. Its
+temporary commit isn't on any branch and doesn't change the index or working tree; leave it for
+`git gc` to collect. Unstaged and untracked changes are **not** part of a `staged` review.
 
 ## 2. Gather the diff and the tool results — in parallel
 
@@ -27,6 +32,7 @@ In a **single message**, make these two Bash calls so they run concurrently:
 - The diff: `git diff <base>` for the working tree (plus `git ls-files --others --exclude-standard`
   to list untracked files, which you then read), or `git diff <base> <head>` for a commit; restrict
   to `-- <p>` if there's a path filter.
+  For `staged`, use `git diff --cached` (the same change as `git diff HEAD <head>`).
 
 If the diff is empty and there are no untracked files, stop and reply that there is nothing to review
 for that target.
@@ -39,7 +45,8 @@ message) and carry on with the correctness review.
 ## 3. Correctness review
 
 Review the diff as a careful senior engineer would: read every hunk, open the surrounding files for
-context as needed (Read, Grep, git log/blame/show), and hunt for correctness issues — wrong or
+context as needed (Read, Grep, git log/blame/show — for a commit or `staged` head, read files as they
+are in that head with `git show <head>:<file>`, since the working tree may differ), and hunt for correctness issues — wrong or
 inverted conditions, off-by-one, null/undefined dereference, missing `await`, dropped error handling,
 removed guards or validations, broken callers of changed functions, races. Prefer real failure modes
 over style; every finding needs a concrete scenario in which the code misbehaves.

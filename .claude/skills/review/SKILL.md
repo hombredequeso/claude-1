@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review a code change (branch vs upstream plus uncommitted work by default, or a named branch, PR number or path) for correctness bugs, and for regressions reported by this repo's quality tools — lint, depcruise, knip, tsc, tests, FTA file scores and per-function cyclomatic complexity. Only problems the change introduces are reported.
+description: Review a code change (branch vs upstream plus uncommitted work by default, or only the staged changes, or a named branch, PR number or path) for correctness bugs, and for regressions reported by this repo's quality tools — lint, depcruise, knip, tsc, tests, FTA file scores and per-function cyclomatic complexity. Only problems the change introduces are reported.
 ---
 
 # Review
@@ -17,6 +17,7 @@ rose markedly, and files whose FTA score got worse.
 /review <branch>     # that branch vs main
 /review <pr-number>  # a GitHub PR
 /review <path>       # the default change, limited to a file or directory
+/review staged       # only the staged changes, against HEAD
 ```
 
 ## Behavior

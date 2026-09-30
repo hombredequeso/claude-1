@@ -36,6 +36,20 @@
 ## Discriminated unions
 
 - When code needs to determine which member of an algebraic/union type a value is, do not use type guard functions. Instead, give every member a property named `kind` holding the type's name, and switch/branch on `kind`.
+- When a `switch` is intended to handle every case, end it with a `default` that throws the narrowed value with `satisfies never` — the value itself when switching on it directly (`switch (status)` → `throw status`), or the union value when switching on its `kind` (`switch (result.kind)` → `throw result`, since `result.kind` doesn't type-check on `never`). The compiler then rejects the `switch` if a case is ever left unhandled, e.g. when a new member is added to the union:
+
+  ```ts
+  switch (result.kind) {
+    case 'OrderCancelled':
+      return ...;
+    case 'IllegalStatusTransition':
+      return ...;
+    default:
+      throw result satisfies never;
+  }
+  ```
+
+  This `throw` is not error handling, so it doesn't conflict with [Errors](#errors): the type checker proves it unreachable, and it only guards against values that bypass the types at runtime.
 
 ## Avoid behavior-parameter indirection
 
@@ -50,7 +64,13 @@
 
 ## Type casting
 
-- Avoid casting types (`as`, `<Type>value`). Check types explicitly at boundaries instead — e.g. parse and validate an HTTP response body immediately on receipt — so that later code works with an already-verified type and casting is never needed.
+- Avoid casting types (`as`, `<Type>value`). Check types explicitly at boundaries instead — e.g. parse and validate an HTTP response body immediately on receipt — so that later code works with an already-verified type and casting is never needed. See [Parsing incoming data](#parsing-incoming-data).
+
+## Parsing incoming data
+
+- Parse all data entering the program at an appropriate place near the boundary where it enters. This includes HTTP request bodies and query/path parameters, rows read from a database, and responses to HTTP requests the program makes. Code past the boundary works only with the parsed, typed result, never with the raw input.
+- Parse with a schema library — this repo uses [zod](https://zod.dev). Define one schema describing the whole shape of the data and parse against it. Don't parse piecemeal, checking and extracting one property at a time by hand.
+- Use the non-throwing form (`safeParse`) and turn a failure into a member of the result union (see [Errors](#errors)), rather than letting the parse throw.
 
 ## null vs. undefined
 

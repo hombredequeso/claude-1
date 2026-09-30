@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { router } from '../app.js';
+import { createRouter } from '../app.js';
+import { createInMemoryOrderStore } from '../persistence/adapters/order/in-memory-order-store.js';
 import { openApiSpec } from './openapi.js';
 import { getRegisteredRoutes } from './route-inventory.js';
 
@@ -19,7 +20,7 @@ const isSameRoute = (
 ) => a.method === b.method && a.path === b.path;
 
 describe('openapi.json route coverage', () => {
-  const registeredRoutes = getRegisteredRoutes(router);
+  const registeredRoutes = getRegisteredRoutes(createRouter({ orderStore: createInMemoryOrderStore() }));
   const specRoutes = getSpecRoutes();
 
   it('documents every registered route', () => {

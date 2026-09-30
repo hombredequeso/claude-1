@@ -1,4 +1,4 @@
-export type OrderStatus = 'Created' | 'Cancelled' | 'Completed';
+type OrderStatus = 'Created' | 'Cancelled' | 'Completed';
 
 export type Order = {
   readonly id: string;
@@ -12,12 +12,12 @@ export type IllegalStatusTransition = {
   to: OrderStatus;
 };
 
-export type OrderCancelled = {
+type OrderCancelled = {
   kind: 'OrderCancelled';
   order: Order;
 };
 
-export type OrderCompleted = {
+type OrderCompleted = {
   kind: 'OrderCompleted';
   order: Order;
 };
@@ -45,6 +45,8 @@ export const cancelOrder = (order: Order): CancelOrderResult => {
     case 'Cancelled':
     case 'Completed':
       return { kind: 'IllegalStatusTransition', from: order.status, to: 'Cancelled' };
+    default:
+      throw order.status satisfies never;
   }
 };
 
@@ -55,5 +57,7 @@ export const completeOrder = (order: Order): CompleteOrderResult => {
     case 'Cancelled':
     case 'Completed':
       return { kind: 'IllegalStatusTransition', from: order.status, to: 'Completed' };
+    default:
+      throw order.status satisfies never;
   }
 };
