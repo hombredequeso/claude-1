@@ -1,7 +1,12 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
-    ".claude/skills/*/scripts/*.mjs"
+    ".claude/skills/*/scripts/*.mjs",
+    "load-tests/*.k6.js",
+    "load-tests/scripts/*.mjs"
+  ],
+  "ignoreDependencies": [
+    "k6"
   ],
   "tags": [
     "-lintignore"
