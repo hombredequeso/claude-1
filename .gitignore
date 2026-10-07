@@ -114,3 +114,6 @@ typings/
 
 # load test output (k6 reports, monitor.sh recordings)
 load-tests/reports/
+
+# profiling output (CPU profiles and their summaries)
+profiling/reports/
