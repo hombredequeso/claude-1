@@ -1,0 +1,16 @@
+{
+  "build": "pnpm build",
+  "start": {
+    "entry": "dist/server.js",
+    "nodeArgs": [],
+    "env": {}
+  },
+  "portEnv": "PORT",
+  "readiness": {
+    "path": "/health",
+    "timeoutSeconds": 10
+  },
+  "shutdownTimeoutSeconds": 10,
+  "sourceRoot": "src",
+  "workload": "load-tests/lib/order-mix.js"
+}

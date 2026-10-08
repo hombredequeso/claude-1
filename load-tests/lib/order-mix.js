@@ -1,4 +1,7 @@
-// The orders API request mix shared by the k6 tests in load-tests/.
+// The orders API request mix shared by the k6 tests in load-tests/ and
+// profiling/: this project's workload, named in .claude/diagnostics.json.
+// It implements the workload contract described in
+// scripts/diagnostics-manifest.mjs.
 //
 // Each iteration picks one action at random, so writes and reads are spread
 // through the whole run rather than clustered:
@@ -13,8 +16,18 @@ const CANCEL_RATIO_OF_WRITES = 0.5;
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
+// Every name tag the requests below are given.
+const REQUEST_NAMES = [
+  'setup: POST /orders',
+  'POST /orders',
+  'POST /orders/{id}/cancel',
+  'POST /orders/{id}/complete',
+  'GET /orders',
+  'GET /orders/{id}',
+];
+
 // timeout is how long k6 waits for each response (k6's own default is 60s).
-export const createOrderMix = ({ baseUrl, timeout = '60s' }) => {
+export const createWorkload = ({ baseUrl, timeout = '60s' }) => {
   // Requests to /orders/{id} are grouped under one name so per-id URLs don't
   // each become a separate metric series.
   const params = (name, headers = {}) => ({ headers, timeout, tags: { name } });
@@ -87,8 +100,8 @@ export const createOrderMix = ({ baseUrl, timeout = '60s' }) => {
 
   // Call from setup(): seeds orders before the load starts so reads of
   // specific orders always have something to hit, even on a VU's first
-  // iteration. Returns the seeded ids, to pass to runIteration.
-  const seedOrders = (count) => {
+  // iteration. Returns the seeded ids, to pass to iteration.
+  const seed = (count) => {
     const ids = Array.from({ length: count }, () => crypto.randomUUID());
     const responses = http.batch(
       ids.map((id) => [
@@ -105,7 +118,7 @@ export const createOrderMix = ({ baseUrl, timeout = '60s' }) => {
     return ids;
   };
 
-  const runIteration = (seedIds) => {
+  const iteration = (seedIds) => {
     if (Math.random() < WRITE_RATIO) {
       writeOrder();
     } else {
@@ -113,5 +126,5 @@ export const createOrderMix = ({ baseUrl, timeout = '60s' }) => {
     }
   };
 
-  return { seedOrders, runIteration };
+  return { requestNames: REQUEST_NAMES, seed, iteration };
 };

@@ -1,5 +1,6 @@
-// k6 breaking-point test for the orders API: steps the request rate up until
-// the API starts to fail, using the request mix in lib/order-mix.js.
+// k6 breaking-point test: steps the request rate up until the API starts to
+// fail, using the project's workload (the request mix named in
+// .claude/diagnostics.json; set WORKLOAD to its path when running by hand).
 //
 // Run against the built API, restarted before each run so the in-memory store
 // starts empty, with the API and k6 pinned to separate cores:
@@ -52,10 +53,10 @@
 //   TIMEOUT          per-request timeout                    (default 5s)
 //   PRE_VUS          VUs allocated up front                 (default 1000)
 //   MAX_VUS          most VUs k6 may use                    (default 2000)
-//   SEED             orders created in setup()              (default 100)
+//   SEED             records created in setup()             (default 100)
 import exec from 'k6/execution';
 import { Gauge } from 'k6/metrics';
-import { createOrderMix } from './lib/order-mix.js';
+import { loadWorkload } from './lib/workload.js';
 
 const START_RPS = Number(__ENV.START_RPS || 100);
 const STEP_RPS = Number(__ENV.STEP_RPS || 250);
@@ -75,7 +76,7 @@ if (SETTLE_SECONDS < STEP_RAMP_SECONDS || SETTLE_SECONDS >= STEP_SECONDS) {
   );
 }
 
-const { seedOrders, runIteration } = createOrderMix({
+const workload = loadWorkload({
   baseUrl: __ENV.BASE_URL || 'http://localhost:3000',
   timeout: __ENV.TIMEOUT || '5s',
 });
@@ -130,9 +131,9 @@ const currentStep = () => {
   return { rate: stepRates[step], secondsIntoStep };
 };
 
-export const setup = () => ({ seedIds: seedOrders(SEED) });
+export const setup = () => workload.seed(SEED);
 
-export default ({ seedIds }) => {
+export default (seedData) => {
   const { rate, secondsIntoStep } = currentStep();
   const steady = secondsIntoStep >= SETTLE_SECONDS;
   exec.vu.metrics.tags.target_rps = rate;
@@ -140,5 +141,5 @@ export default ({ seedIds }) => {
   if (steady) {
     steadyElapsed.add(secondsIntoStep - SETTLE_SECONDS);
   }
-  runIteration(seedIds);
+  workload.iteration(seedData);
 };

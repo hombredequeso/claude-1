@@ -5,6 +5,9 @@
 # is written, then summarises the profile. Everything is written to one
 # directory, and its path is the last line printed.
 #
+# How to build, start and drive the API comes from the project manifest,
+# .claude/diagnostics.json (see scripts/diagnostics-manifest.mjs).
+#
 # Usage:
 #   profiling/run.sh [label] [-- extra k6 args...]
 # e.g.
@@ -41,7 +44,7 @@
 #   API_CPUS           cores for the API (taskset)        (default 0,1)
 #   K6_CPUS            cores for k6 (taskset)             (default 2,3)
 #   SAMPLE_INTERVAL_US profiler sampling interval, in µs  (default 1000)
-#   SKIP_BUILD         set to 1 to reuse dist/            (default: build)
+#   SKIP_BUILD         set to 1 to reuse the last build   (default: build)
 set -euo pipefail
 
 usage() {
@@ -75,6 +78,9 @@ setup_failed() {
   exit 2
 }
 
+source scripts/diagnostics-app.sh
+diag_load_manifest
+
 if [[ -n "$(ss -ltnH "sport = :$PORT")" ]]; then
   setup_failed "Port $PORT is already in use. Stop whatever is on it, or set PORT."
 fi
@@ -88,45 +94,30 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ "${SKIP_BUILD:-}" != "1" ]]; then
-  log "Building..."
-  pnpm build > "$out_dir/build.log" 2>&1 || setup_failed "Build failed, see $out_dir/build.log"
-fi
+diag_build "$out_dir/build.log"
 
 log "Starting API under the CPU profiler on port $PORT (cores $API_CPUS)..."
-PORT="$PORT" taskset -c "$API_CPUS" node \
-  --cpu-prof --cpu-prof-dir="$out_dir/.cpuprofile" --cpu-prof-interval="$SAMPLE_INTERVAL_US" \
-  dist/server.js > "$out_dir/api.log" 2>&1 &
-api_pid=$!
+diag_start "$out_dir/api.log" "$PORT" "$API_CPUS" \
+  --cpu-prof --cpu-prof-dir="$out_dir/.cpuprofile" --cpu-prof-interval="$SAMPLE_INTERVAL_US"
 base_url="http://localhost:$PORT"
-for _ in $(seq 1 50); do
-  curl -sf "$base_url/health" > /dev/null && break
-  kill -0 "$api_pid" 2>/dev/null || setup_failed "API exited on startup, see $out_dir/api.log"
-  sleep 0.2
-done
-curl -sf "$base_url/health" > /dev/null || setup_failed "API not healthy after 10s, see $out_dir/api.log"
+diag_wait_ready "$base_url" "$out_dir/api.log"
 
 log "Running profile.k6.js (cores $K6_CPUS)..."
 started_at="$(date -Iseconds)"
 k6_exit=0
 taskset -c "$K6_CPUS" k6 run --quiet --no-color \
   --summary-export "$out_dir/k6-summary.json" \
-  -e BASE_URL="$base_url" "${k6_args[@]}" "$profiling_dir/profile.k6.js" \
+  -e BASE_URL="$base_url" -e WORKLOAD="$DIAG_WORKLOAD" "${k6_args[@]}" "$profiling_dir/profile.k6.js" \
   > "$out_dir/k6-console.txt" 2>&1 || k6_exit=$?
 finished_at="$(date -Iseconds)"
 
-# The profile is only written when the API exits normally, which it does on
-# SIGTERM (see src/server.ts).
+# The profile is only written when the API exits normally, which the
+# manifest requires it to do on SIGTERM.
 log "Stopping API so the profile is written..."
 api_alive_at_end=false
 if kill -0 "$api_pid" 2>/dev/null; then
   api_alive_at_end=true
-  kill -TERM "$api_pid"
-  for _ in $(seq 1 100); do
-    kill -0 "$api_pid" 2>/dev/null || break
-    sleep 0.1
-  done
-  kill -0 "$api_pid" 2>/dev/null && setup_failed "API didn't exit within 10s of SIGTERM, so no profile was written"
+  diag_stop || setup_failed "API didn't exit within ${DIAG_SHUTDOWN_TIMEOUT_S}s of SIGTERM, so no profile was written"
 fi
 api_exit=0
 wait "$api_pid" || api_exit=$?
@@ -139,10 +130,10 @@ mv "${profiles[0]}" "$out_dir/api.cpuprofile"
 # Written with node so values are JSON-escaped properly.
 RUN_JSON_OUT="$out_dir/run.json" node -e '
 const fs = require("node:fs");
-const [label, port, apiCpus, k6Cpus, sampleIntervalUs, startedAt, finishedAt, k6Exit, apiAliveAtEnd, apiExit, commit, dirty, ...k6Args] =
+const [label, workload, port, apiCpus, k6Cpus, sampleIntervalUs, startedAt, finishedAt, k6Exit, apiAliveAtEnd, apiExit, commit, dirty, ...k6Args] =
   process.argv.slice(1);
 fs.writeFileSync(process.env.RUN_JSON_OUT, JSON.stringify({
-  label: label || null, k6_args: k6Args,
+  label: label || null, workload, k6_args: k6Args,
   base_url: `http://localhost:${port}`, api_cpus: apiCpus, k6_cpus: k6Cpus,
   sample_interval_us: Number(sampleIntervalUs),
   started_at: startedAt, finished_at: finishedAt,
@@ -150,7 +141,7 @@ fs.writeFileSync(process.env.RUN_JSON_OUT, JSON.stringify({
   api_alive_at_end: apiAliveAtEnd === "true", api_exit_code: Number(apiExit),
   git: { commit, dirty: dirty === "true" },
 }, null, 2) + "\n");
-' "$label" "$PORT" "$API_CPUS" "$K6_CPUS" "$SAMPLE_INTERVAL_US" "$started_at" "$finished_at" "$k6_exit" \
+' "$label" "$(realpath --relative-to=. "$DIAG_WORKLOAD")" "$PORT" "$API_CPUS" "$K6_CPUS" "$SAMPLE_INTERVAL_US" "$started_at" "$finished_at" "$k6_exit" \
   "$api_alive_at_end" "$api_exit" "$(git rev-parse --short HEAD)" "$([[ -n "$(git status --porcelain)" ]] && echo true || echo false)" \
   "${k6_args[@]}"
 

@@ -3,9 +3,11 @@
   "entry": [
     ".claude/skills/*/scripts/*.mjs",
     "load-tests/*.k6.js",
+    "load-tests/lib/*.js",
     "load-tests/scripts/*.mjs",
     "profiling/*.k6.js",
-    "profiling/scripts/*.mjs"
+    "profiling/scripts/*.mjs",
+    "scripts/*.mjs"
   ],
   "ignoreDependencies": [
     "k6"

@@ -3,6 +3,10 @@
 # of it, records CPU and memory with monitor.sh while k6 runs, then stops the
 # API. Everything a later assessment needs is written to one directory.
 #
+# How to build, start and drive the API comes from the project manifest,
+# .claude/diagnostics.json (see scripts/diagnostics-manifest.mjs); the k6
+# script gets the manifest's workload in its WORKLOAD env var.
+#
 # Usage:
 #   load-tests/run.sh <k6-script> [label] [-- extra k6 args...]
 # e.g.
@@ -35,7 +39,7 @@
 #   PORT        port the API listens on      (default 3100)
 #   API_CPUS    cores for the API (taskset)  (default 0,1)
 #   K6_CPUS     cores for k6 (taskset)       (default 2,3)
-#   SKIP_BUILD  set to 1 to reuse dist/      (default: build)
+#   SKIP_BUILD  set to 1 to reuse the build  (default: build)
 set -euo pipefail
 
 usage() {
@@ -72,6 +76,9 @@ setup_failed() {
   exit 2
 }
 
+source scripts/diagnostics-app.sh
+diag_load_manifest
+
 if [[ -n "$(ss -ltnH "sport = :$PORT")" ]]; then
   setup_failed "Port $PORT is already in use. Stop whatever is on it, or set PORT."
 fi
@@ -87,21 +94,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ "${SKIP_BUILD:-}" != "1" ]]; then
-  log "Building..."
-  pnpm build > "$out_dir/build.log" 2>&1 || setup_failed "Build failed, see $out_dir/build.log"
-fi
+diag_build "$out_dir/build.log"
 
 log "Starting API on port $PORT (cores $API_CPUS)..."
-PORT="$PORT" taskset -c "$API_CPUS" node dist/server.js > "$out_dir/api.log" 2>&1 &
-api_pid=$!
+diag_start "$out_dir/api.log" "$PORT" "$API_CPUS"
 base_url="http://localhost:$PORT"
-for _ in $(seq 1 50); do
-  curl -sf "$base_url/health" > /dev/null && break
-  kill -0 "$api_pid" 2>/dev/null || setup_failed "API exited on startup, see $out_dir/api.log"
-  sleep 0.2
-done
-curl -sf "$base_url/health" > /dev/null || setup_failed "API not healthy after 10s, see $out_dir/api.log"
+diag_wait_ready "$base_url" "$out_dir/api.log"
 
 log "Running $script (cores $K6_CPUS), output in $out_dir ..."
 started_at="$(date -Iseconds)"
@@ -110,7 +108,7 @@ K6_WEB_DASHBOARD=true \
   K6_WEB_DASHBOARD_EXPORT="$out_dir/dashboard.html" \
   taskset -c "$K6_CPUS" k6 run --quiet --no-color \
   --summary-export "$out_dir/summary.json" \
-  -e BASE_URL="$base_url" "${k6_args[@]}" "$script" \
+  -e BASE_URL="$base_url" -e WORKLOAD="$DIAG_WORKLOAD" "${k6_args[@]}" "$script" \
   > "$out_dir/k6-console.txt" 2>&1 &
 k6_pid=$!
 
@@ -150,10 +148,10 @@ esac
 RUN_JSON_OUT="$out_dir/run.json" RESULT_JSON="$result_json" node -e '
 const fs = require("node:fs");
 const result = JSON.parse(fs.readFileSync(process.env.RESULT_JSON, "utf8"));
-const [script, label, port, apiCpus, k6Cpus, startedAt, finishedAt, k6Exit, outcome, apiAlive, commit, dirty, outDir, ...k6Args] =
+const [script, label, workload, port, apiCpus, k6Cpus, startedAt, finishedAt, k6Exit, outcome, apiAlive, commit, dirty, outDir, ...k6Args] =
   process.argv.slice(1);
 fs.writeFileSync(process.env.RUN_JSON_OUT, JSON.stringify({
-  script, label: label || null, k6_args: k6Args,
+  script, label: label || null, workload, k6_args: k6Args,
   base_url: `http://localhost:${port}`, api_cpus: apiCpus, k6_cpus: k6Cpus,
   started_at: startedAt, finished_at: finishedAt,
   k6_exit_code: Number(k6Exit), outcome,
@@ -162,7 +160,7 @@ fs.writeFileSync(process.env.RUN_JSON_OUT, JSON.stringify({
   ...result,
   files: fs.readdirSync(outDir).filter((file) => !file.startsWith(".")).concat("run.json").sort(),
 }, null, 2) + "\n");
-' "$script" "$label" "$PORT" "$API_CPUS" "$K6_CPUS" "$started_at" "$finished_at" "$k6_exit" "$outcome" \
+' "$script" "$label" "$(realpath --relative-to=. "$DIAG_WORKLOAD")" "$PORT" "$API_CPUS" "$K6_CPUS" "$started_at" "$finished_at" "$k6_exit" "$outcome" \
   "$api_alive" "$(git rev-parse --short HEAD)" "$([[ -n "$(git status --porcelain)" ]] && echo true || echo false)" \
   "$out_dir" "${k6_args[@]}"
 

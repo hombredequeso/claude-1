@@ -15,7 +15,8 @@
 #   vmstat.log           whole machine: run queue (r), idle CPU (id), swapping
 #
 # Env vars (load-tests/run.sh sets all three):
-#   API_PID  pid of the API process (default: the process running `node dist/server.js`)
+#   API_PID  pid of the API process (default: the node process running the
+#            manifest's start.entry, see .claude/diagnostics.json)
 #   K6_PID   pid of the k6 process to record (default: wait for k6 to start)
 #   OUT_DIR  output directory (default: a new directory under load-tests/reports/)
 set -euo pipefail
@@ -23,11 +24,22 @@ set -euo pipefail
 reports_dir="$(cd "$(dirname "$0")" && pwd)/reports"
 out_dir="${OUT_DIR:-$reports_dir/$(date +%Y%m%d-%H%M%S)${1:+-$1}}"
 
-api_pid="${API_PID:-$(pgrep -f '^node dist/server.js' || true)}"
-if [[ -z "$api_pid" || "$api_pid" == *$'\n'* ]]; then
-  echo "Expected exactly one API process running 'node dist/server.js', found: ${api_pid:-none}." >&2
-  echo "Start it with 'pnpm build && pnpm start', or set API_PID." >&2
-  exit 1
+api_pid="${API_PID:-}"
+if [[ -z "$api_pid" ]]; then
+  log() { echo "$*"; }
+  setup_failed() {
+    echo "$*" >&2
+    exit 1
+  }
+  cd "$reports_dir/../.."
+  source scripts/diagnostics-app.sh
+  diag_load_manifest
+  api_pid="$(pgrep -f "^node .*$DIAG_ENTRY" || true)"
+  if [[ -z "$api_pid" || "$api_pid" == *$'\n'* ]]; then
+    echo "Expected exactly one API process running 'node ... $DIAG_ENTRY', found: ${api_pid:-none}." >&2
+    echo "Start the API, or set API_PID." >&2
+    exit 1
+  fi
 fi
 
 k6_pid="${K6_PID:-}"

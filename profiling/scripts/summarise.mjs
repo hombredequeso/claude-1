@@ -19,10 +19,11 @@
 //   - the hottest lines in the API's own code, from V8's per-line sample
 //     counts (positionTicks), with the line's source
 //   - CPU time per request, the figure to compare between runs
-// The API's own code is reported at its TypeScript source (src/*.ts), mapped
-// through the source maps tsc writes next to dist/*.js; code without a source
-// map is reported at its dist/ location. dist/ must still be the build that
-// was profiled, which it is when run.sh runs this straight after the profile.
+// The API's own code is reported at its TypeScript source (under the
+// manifest's sourceRoot, see .claude/diagnostics.json), mapped through the
+// source maps the build writes next to its output; code without a source map
+// is reported at its built location. The build must still be the one that was
+// profiled, which it is when run.sh runs this straight after the profile.
 // Startup, before the API handles its first request, is reported as one
 // figure and left out of the rest. Percentages are of busy time: the time
 // from the first request to the end of the profile, less idle time.
@@ -31,6 +32,7 @@ import { SourceMap } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { loadManifest } from '../../scripts/diagnostics-manifest.mjs';
 
 const TOP_FUNCTIONS = 25;
 const TOP_FUNCTIONS_WITH_STACKS = 10;
@@ -41,6 +43,7 @@ const TOP_LINES = 20;
 const MAX_CODE_LENGTH = 100;
 
 const PROJECT_ROOT = join(import.meta.dirname, '../..');
+const SOURCE_ROOT = loadManifest(PROJECT_ROOT).sourceRoot;
 
 // V8's pseudo-functions, which have no script: where samples land when no
 // JavaScript function is running.
@@ -52,7 +55,7 @@ const SPECIAL_AREAS = {
 };
 
 const AREA_DESCRIPTIONS = {
-  app: "The API's own code (src/)",
+  app: `The API's own code (${SOURCE_ROOT}/)`,
   dependency: 'Dependencies (node_modules)',
   node: "Node's internals (node:*)",
   builtin: 'V8 builtins and native functions (JSON, RegExp, Array, ...)',

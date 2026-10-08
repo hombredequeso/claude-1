@@ -1,20 +1,25 @@
 ---
 name: profile
-description: Profile the orders API's CPU use under a realistic request mix and diagnose where the time goes — which of the API's own code, and which dependency or builtin work it triggers, is worth optimising, with src/*.ts locations. Diagnosis only; it doesn't change code. Also compares two runs, to check whether a change fixed a hot spot. Use when asked to profile the API, find CPU hot spots, explain why the API is slow or CPU-heavy, or confirm that an optimisation worked.
+description: Profile the API's CPU use under its representative request mix and diagnose where the time goes — which of the API's own code, and which dependency or builtin work it triggers, is worth optimising, with source file:line locations. Diagnosis only; it doesn't change code. Also compares two runs, to check whether a change fixed a hot spot. Use when asked to profile the API, find CPU hot spots, explain why the API is slow or CPU-heavy, or confirm that an optimisation worked.
 allowed-tools: Bash(profiling/run.sh:*), Bash(SKIP_BUILD=1 profiling/run.sh:*), Bash(node profiling/scripts/compare.mjs:*), Read, Grep, Glob
 ---
 
 # Profile
 
 Runs `profiling/run.sh`, which builds the API, runs it under node's CPU profiler while k6 drives
-a fixed amount of the orders request mix (`load-tests/lib/order-mix.js`) through it, and writes a
-report directory whose `summary.md` says where the CPU time went. Then reads the summary and the
+a fixed amount of the project's workload through it, and writes a report directory whose
+`summary.md` says where the CPU time went. Then reads the summary and the
 code it points at, and reports what is worth optimising. In compare mode, profiles again (or takes
 a second report) and reports whether a change made a difference, from
 `profiling/scripts/compare.mjs`.
 
 **Diagnose only.** Don't edit code, even for an obvious fix: report findings and suggestions, and
 leave the decision to the user.
+
+How to build, start and drive the API comes from the project manifest, `.claude/diagnostics.json`
+(documented in `scripts/diagnostics-manifest.mjs`): the workload is the k6 module it names. If
+`run.sh` reports a missing or invalid manifest, report that and stop. Below, `src/` means the
+manifest's `sourceRoot`.
 
 ## Usage
 
@@ -66,10 +71,10 @@ Note the run's commit and whether it had uncommitted changes, in case the code h
 
 ### 3. Work out what is actionable
 
-The bulk of busy time is a fixed per-request cost the API's code doesn't control: Koa and its
-helpers (koa, koa-compose, delegates, @koa/router, on-finished, mime-types, ...) and node's HTTP
-and stream internals together are typically ~70%, and native `writev` (writing responses to the
-socket) alone ~12–15%. Don't report these as findings. Mention them only as the baseline, or if
+The bulk of busy time is usually a fixed per-request cost the API's code doesn't control: the
+HTTP framework and its helpers (for this project, Koa: koa, koa-compose, delegates, @koa/router,
+on-finished, mime-types, ...) and node's HTTP and stream internals together are typically ~70%,
+and native `writev` (writing responses to the socket) alone ~12–15%. Don't report these as findings. Mention them only as the baseline, or if
 something in them is out of line with that.
 
 What is actionable is time the API's own code spends or causes:
@@ -86,9 +91,10 @@ What is actionable is time the API's own code spends or causes:
   repeated compilation.
 
 Weigh each candidate by how much busy time it accounts for **and** how often its code path runs:
-the request table gives the mix (most requests are `GET /orders/{id}`, then `GET /orders`, with
-writes ~10%). Also consider how the cost scales: the store grows during a run, so anything that
-grows with the number of orders (e.g. listing, paging offsets) matters more than its share here.
+the request table gives the mix (the workload module's header usually describes it too). Also
+consider how the cost scales: if the workload creates records, the store grows during a run, so
+anything that grows with the number of records (e.g. listing, paging offsets) matters more than
+its share here.
 
 ### 4. Judge how sure each finding is
 
@@ -233,8 +239,11 @@ Keep it short. Cite `src/*.ts:line` where it helps.
 
 ## Files
 
+- `.claude/diagnostics.json`: the project manifest (build, start, readiness, source root,
+  workload); `scripts/diagnostics-manifest.mjs` documents it and the workload contract.
 - `profiling/run.sh`: runs a profile end to end; its header documents options and output.
-- `profiling/profile.k6.js`: the fixed-iteration k6 scenario (`ITERATIONS`, `VUS`, `SEED`).
+- `profiling/profile.k6.js`: the fixed-iteration k6 scenario (`ITERATIONS`, `VUS`, `SEED`), which
+  runs the manifest's workload.
 - `profiling/scripts/summarise.mjs`: turns the profile into `summary.md` and `summary.json`.
 - `profiling/scripts/compare.mjs`: compares two runs' `summary.json` into `comparison.md`; its
   header documents how changes are judged.
