@@ -1,8 +1,8 @@
-Your current setup covers four things well: CPU hot spots (`/profile`, including before/after comparison and noise runs), throughput limits (`load-tests/`, which has scripts but no skill yet), static quality regressions (`/review`) and contract conformance (`/openapi-test`). Below are the gaps I'd fill, grouped by your three goals, plus a few changes that would make the skills work on any TypeScript project.
+Your current setup covers four things well: CPU hot spots (`/profile`, including before/after comparison and noise runs), throughput limits (`test/load-test/`, which has scripts but no skill yet), static quality regressions (`/review`) and contract conformance (`/openapi-test`). Below are the gaps I'd fill, grouped by your three goals, plus a few changes that would make the skills work on any TypeScript project.
 
 ## 0. First, make the skills portable
 
-`/profile` and `load-tests/run.sh` are tied to "the orders API": the build command, port, health check and `order-mix.js`. Before adding more skills, I'd pull those details into one **project manifest**, for example `.claude/diagnostics.json`:
+`/profile` and `test/load-test/run.sh` are tied to "the orders API": the build command, port, health check and `order-mix.js`. Before adding more skills, I'd pull those details into one **project manifest**, for example `.claude/diagnostics.json`:
 
 ```jsonc
 {
@@ -10,7 +10,7 @@ Your current setup covers four things well: CPU hot spots (`/profile`, including
   "start": "node --enable-source-maps dist/server.js",
   "port_env": "PORT",
   "ready": "GET /health → 200",
-  "workload": "load-tests/lib/order-mix.js",      // k6 module exporting the request mix
+  "workload": "test/load-test/lib/order-mix.js",      // k6 module exporting the request mix
   "seed": "scripts/seed.mts",                       // optional: create N records
   "sourceRoot": "src"
 }

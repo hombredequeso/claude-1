@@ -5,9 +5,9 @@
 // Run against the built API, restarted before each run so the in-memory store
 // starts empty, with the API and k6 pinned to separate cores:
 //   pnpm build && taskset -c 0,1 pnpm start
-//   load-tests/monitor.sh                      # in a second terminal
-//   K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=load-tests/reports/breaking-point.html \
-//     taskset -c 2,3 k6 run load-tests/breaking-point.k6.js
+//   test/load-test/monitor.sh                      # in a second terminal
+//   K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=test/load-test/reports/breaking-point.html \
+//     taskset -c 2,3 k6 run test/load-test/breaking-point.k6.js
 //
 // The rate is an open model (ramping-arrival-rate): iterations start on
 // schedule whether or not earlier ones have finished, so a slowing API can't
@@ -38,10 +38,10 @@
 // each step's steady-phase iteration count, and how far into its steady
 // phase the run got (the breaking_point_steady_elapsed gauge), are also
 // reported in the summary through always-passing thresholds.
-// load-tests/scripts/run-result.mjs turns these into each step's achieved
+// test/load-test/scripts/run-result.mjs turns these into each step's achieved
 // rate, and a verdict on whether the API or k6 was the limit.
 //
-// Overridable with env vars, e.g. `k6 run -e STEP_RPS=500 load-tests/breaking-point.k6.js`:
+// Overridable with env vars, e.g. `k6 run -e STEP_RPS=500 test/load-test/breaking-point.k6.js`:
 //   BASE_URL         API base URL                           (default http://localhost:3000)
 //   START_RPS        iterations/s on the first step         (default 100)
 //   STEP_RPS         iterations/s added each step           (default 250)

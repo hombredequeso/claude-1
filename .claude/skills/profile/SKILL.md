@@ -18,8 +18,8 @@ leave the decision to the user.
 
 How to build, start and drive the API comes from the project manifest, `.claude/diagnostics.json`
 (documented in `scripts/diagnostics-manifest.mjs`): the workload is the k6 module it names. If
-`run.sh` reports a missing or invalid manifest, report that and stop. Below, `src/` means the
-manifest's `sourceRoot`.
+`run.sh` reports a missing or invalid manifest, report that, suggest `/diagnostics-init`, and stop.
+Below, `src/` means the manifest's `sourceRoot`.
 
 ## Usage
 
@@ -108,7 +108,7 @@ its share here.
 - If the API's own code is too small a share to say anything confident, suggest a longer run
   (`/profile -- -e ITERATIONS=50000`) rather than guessing.
 - A CPU profile shows CPU only. It can't show time spent waiting, and says nothing about latency
-  under concurrency (that's what `load-tests/` is for).
+  under concurrency (that's what `test/load-test/` is for).
 
 If nothing in the API's own code is worth changing, say so plainly. Don't invent findings to
 fill the report.

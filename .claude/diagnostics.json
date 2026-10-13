@@ -12,5 +12,5 @@
   },
   "shutdownTimeoutSeconds": 10,
   "sourceRoot": "src",
-  "workload": "load-tests/lib/order-mix.js"
+  "workload": "test/load-test/lib/order-mix.js"
 }

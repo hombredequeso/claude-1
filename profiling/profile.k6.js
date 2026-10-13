@@ -13,7 +13,7 @@
 //   VUS         concurrent VUs                   (default 10)
 //   SEED        records created in setup()       (default 100)
 //   MAX_TIME    give up after this long          (default 5m)
-import { loadWorkload } from '../load-tests/lib/workload.js';
+import { loadWorkload } from '../test/load-test/lib/workload.js';
 
 const ITERATIONS = Number(__ENV.ITERATIONS || 20000);
 const VUS = Number(__ENV.VUS || 10);

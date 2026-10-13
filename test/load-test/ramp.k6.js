@@ -1,10 +1,10 @@
 // k6 load test: ramp up, hold at full load, ramp down, using the project's
 // workload (the request mix named in .claude/diagnostics.json).
 //
-// Run with load-tests/run.sh, or against a locally running API:
-//   k6 run -e WORKLOAD=$PWD/load-tests/lib/order-mix.js load-tests/ramp.k6.js
+// Run with test/load-test/run.sh, or against a locally running API:
+//   k6 run -e WORKLOAD=$PWD/test/load-test/lib/order-mix.js test/load-test/ramp.k6.js
 //
-// Overridable with env vars, e.g. `k6 run -e VUS=100 -e HOLD=5m load-tests/ramp.k6.js`:
+// Overridable with env vars, e.g. `k6 run -e VUS=100 -e HOLD=5m test/load-test/ramp.k6.js`:
 //   BASE_URL   API base URL               (default http://localhost:3000)
 //   VUS        VUs at full load           (default 50)
 //   RAMP_UP    ramp-up duration           (default 30s)

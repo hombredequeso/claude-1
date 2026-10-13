@@ -8,16 +8,16 @@
 # script gets the manifest's workload in its WORKLOAD env var.
 #
 # Usage:
-#   load-tests/run.sh <k6-script> [label] [-- extra k6 args...]
+#   test/load-test/run.sh <k6-script> [label] [-- extra k6 args...]
 # e.g.
-#   load-tests/run.sh load-tests/breaking-point.k6.js
-#   load-tests/run.sh load-tests/breaking-point.k6.js pre-vus-1000 -- -e PRE_VUS=1000
+#   test/load-test/run.sh test/load-test/breaking-point.k6.js
+#   test/load-test/run.sh test/load-test/breaking-point.k6.js pre-vus-1000 -- -e PRE_VUS=1000
 #
 # The API runs on its own port (PORT, default 3100), so a dev server on 3000
 # is never touched, and the run refuses to start if that port is in use. The
 # API and k6 are pinned to separate cores so neither starves the other.
 #
-# Output goes to load-tests/reports/<date>-<time>-<script>[-label]/:
+# Output goes to test/load-test/reports/<date>-<time>-<script>[-label]/:
 #   run.json             what ran, how, the outcome, the thresholds crossed,
 #                        and for breaking-point.k6.js each step's result and a
 #                        verdict (see scripts/run-result.mjs), and the files below
@@ -43,7 +43,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: load-tests/run.sh <k6-script> [label] [-- extra k6 args...]" >&2
+  echo "Usage: test/load-test/run.sh <k6-script> [label] [-- extra k6 args...]" >&2
   exit 2
 }
 
@@ -63,7 +63,7 @@ API_CPUS="${API_CPUS:-0,1}"
 K6_CPUS="${K6_CPUS:-2,3}"
 
 load_tests_dir="$(cd "$(dirname "$0")" && pwd)"
-cd "$load_tests_dir/.."
+cd "$load_tests_dir/../.."
 
 script_name="$(basename "$script" .js)"
 script_name="${script_name%.k6}"

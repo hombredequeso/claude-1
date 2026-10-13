@@ -113,7 +113,7 @@ typings/
 # End of https://www.gitignore.io/api/node,macos
 
 # load test output (k6 reports, monitor.sh recordings)
-load-tests/reports/
+test/load-test/reports/
 
 # profiling output (CPU profiles and their summaries)
 profiling/reports/

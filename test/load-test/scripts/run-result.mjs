@@ -1,7 +1,7 @@
-// Reads a run directory written by load-tests/run.sh and prints the run's
+// Reads a run directory written by test/load-test/run.sh and prints the run's
 // result as JSON, for run.sh to put in run.json.
 //
-// Usage: node load-tests/scripts/run-result.mjs <run-dir> <k6-core-count>
+// Usage: node test/load-test/scripts/run-result.mjs <run-dir> <k6-core-count>
 //
 // Reads summary.json (k6's legacy --summary-export format, in which a
 // threshold's value is true when it was crossed) and, when present, the
@@ -213,7 +213,7 @@ const toResult = (summary, monitor, k6CoreCount) => {
 
 const [runDir, k6CoreCountArg] = process.argv.slice(2);
 if (runDir === undefined || k6CoreCountArg === undefined) {
-  console.error('Usage: node load-tests/scripts/run-result.mjs <run-dir> <k6-core-count>');
+  console.error('Usage: node test/load-test/scripts/run-result.mjs <run-dir> <k6-core-count>');
   process.exit(1);
 }
 const summary = JSON.parse(readFileSync(join(runDir, 'summary.json'), 'utf8'));

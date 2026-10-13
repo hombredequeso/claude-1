@@ -1,4 +1,4 @@
-// The orders API request mix shared by the k6 tests in load-tests/ and
+// The orders API request mix shared by the k6 tests in test/load-test/ and
 // profiling/: this project's workload, named in .claude/diagnostics.json.
 // It implements the workload contract described in
 // scripts/diagnostics-manifest.mjs.

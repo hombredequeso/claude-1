@@ -1,5 +1,5 @@
 # Starting and stopping the app for the diagnostic run scripts
-# (profiling/run.sh, load-tests/run.sh), driven by the project manifest,
+# (profiling/run.sh, test/load-test/run.sh), driven by the project manifest,
 # .claude/diagnostics.json (see scripts/diagnostics-manifest.mjs).
 #
 # Source it from the project root, after defining log (print progress) and

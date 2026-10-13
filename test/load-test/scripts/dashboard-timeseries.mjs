@@ -1,7 +1,7 @@
 // Extracts the per-period time series (10s by default) from a k6 web
 // dashboard HTML export into CSV, so it can be read without a browser.
 //
-// Usage: node load-tests/scripts/dashboard-timeseries.mjs <dashboard.html> > timeseries.csv
+// Usage: node test/load-test/scripts/dashboard-timeseries.mjs <dashboard.html> > timeseries.csv
 //
 // The export embeds its data as gzipped, base64-encoded newline-delimited
 // JSON events. `metric` events register metric names; each `snapshot` event
@@ -91,7 +91,7 @@ const toCsv = (snapshots) => {
 
 const [htmlPath] = process.argv.slice(2);
 if (htmlPath === undefined) {
-  console.error('Usage: node load-tests/scripts/dashboard-timeseries.mjs <dashboard.html>');
+  console.error('Usage: node test/load-test/scripts/dashboard-timeseries.mjs <dashboard.html>');
   process.exit(1);
 }
 process.stdout.write(toCsv(toSnapshots(readEvents(htmlPath))));

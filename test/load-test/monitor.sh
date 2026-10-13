@@ -3,10 +3,10 @@
 # can be checked afterwards for whether the API or k6 was the limit.
 #
 # Usage: start the API, start this script, then start k6 in another terminal:
-#   load-tests/monitor.sh [label]
+#   test/load-test/monitor.sh [label]
 #
 # It waits for k6 to start, records once a second until k6 exits, then stops.
-# Output goes to load-tests/reports/<date>-<time>[-label]/:
+# Output goes to test/load-test/reports/<date>-<time>[-label]/:
 #   run.txt              API and k6 pids, k6 command line, start and end times
 #   pidstat.log          per process: CPU (user/system), memory, context switches
 #   pidstat-threads.log  per API thread: the main JavaScript thread is the one
@@ -14,11 +14,11 @@
 #                        API is saturated, whatever the process total says
 #   vmstat.log           whole machine: run queue (r), idle CPU (id), swapping
 #
-# Env vars (load-tests/run.sh sets all three):
+# Env vars (test/load-test/run.sh sets all three):
 #   API_PID  pid of the API process (default: the node process running the
 #            manifest's start.entry, see .claude/diagnostics.json)
 #   K6_PID   pid of the k6 process to record (default: wait for k6 to start)
-#   OUT_DIR  output directory (default: a new directory under load-tests/reports/)
+#   OUT_DIR  output directory (default: a new directory under test/load-test/reports/)
 set -euo pipefail
 
 reports_dir="$(cd "$(dirname "$0")" && pwd)/reports"
@@ -31,7 +31,7 @@ if [[ -z "$api_pid" ]]; then
     echo "$*" >&2
     exit 1
   }
-  cd "$reports_dir/../.."
+  cd "$reports_dir/../../.."
   source scripts/diagnostics-app.sh
   diag_load_manifest
   api_pid="$(pgrep -f "^node .*$DIAG_ENTRY" || true)"

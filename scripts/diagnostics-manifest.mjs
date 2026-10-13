@@ -1,5 +1,5 @@
 // Reads .claude/diagnostics.json, the project manifest that tells the
-// diagnostic tooling (profiling/, load-tests/ and the skills that drive them)
+// diagnostic tooling (profiling/, test/load-test/ and the skills that drive them)
 // how to build, start, check and drive this project's app. Everything
 // project-specific those tools need is here, so they can be pointed at
 // another TypeScript HTTP service by writing its manifest and workload.
