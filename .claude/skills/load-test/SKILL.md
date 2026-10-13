@@ -118,6 +118,13 @@ For where the API's CPU goes, or why CPU per request is high, suggest `/profile`
 code responsible. This skill says how much load the API takes and what runs out first, not which
 code to change.
 
+If a `<focus>` was given, read the result in its light and lead with that: for a feature (e.g.
+"listing orders"), how its requests' share of the mix bears on the limit and whether CPU per
+iteration grows with what it does; for a change (e.g. "after the listing change"), what the
+change should move (the limit, the headroom, the latency curve) and whether this run shows it,
+suggesting `/load-test compare` against an earlier run to be sure. Then summarise the rest
+briefly.
+
 `vmstat.log` shows the whole machine (run queue `r`, idle `id`): if something else was busy, the
 run isn't representative; say so.
 

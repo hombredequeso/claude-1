@@ -96,6 +96,11 @@ consider how the cost scales: if the workload creates records, the store grows d
 anything that grows with the number of records (e.g. listing, paging offsets) matters more than
 its share here.
 
+If a `<focus>` was given, find the code it names (its route handler and what that calls) and lead
+with that: its rows (self and total), the dependency and builtin work its stacks cause, and the
+request types that reach it. If it's below the noise floor, say so rather than stretching. Then
+summarise the rest briefly, still flagging anything elsewhere that clearly outweighs it.
+
 ### 4. Judge how sure each finding is
 
 - Sampling is every 1 ms, so a figure of N ms is roughly N samples. Under ~20 ms (~20 samples),
