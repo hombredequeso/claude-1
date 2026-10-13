@@ -21,6 +21,11 @@
 //                       k6 reads responses late, inflating measured latency)
 //   no_limit_found      every step passed at its full target rate
 //
+// Each step also gets the API main thread's and k6's average CPU over its
+// steady phase, from the monitor's pidstat logs. The same rate at lower API
+// CPU means more headroom, which shows a change in throughput even when the
+// run doesn't find the API's limit.
+//
 // Each step's status is one of:
 //   ok             passed, at (nearly) the full target rate
 //   api_failed     its latency or error-rate threshold was crossed
@@ -40,9 +45,11 @@ const SATURATED_RATIO = 0.9;
 // so a failure early in a step isn't averaged with the step before it.
 const MIN_FAILURE_SAMPLES = 3;
 const MAX_FAILURE_SAMPLES = 10;
+// Fewest pidstat samples a step's steady phase needs for its CPU figures.
+const MIN_STEP_SAMPLES = 3;
 
 const STEP_METRIC =
-  /^(http_req_duration|http_req_failed|iterations|breaking_point_steady_elapsed)\{target_rps:(\d+),step_phase:steady\}$/;
+  /^(http_req_duration|http_req_failed|iterations|breaking_point_steady_elapsed|breaking_point_steady_start)\{target_rps:(\d+),step_phase:steady\}$/;
 
 const round = (value, places) =>
   value === undefined || value === null || Number.isNaN(value) ? null : Number(value.toFixed(places));
@@ -75,6 +82,7 @@ const stepMetrics = (metrics, rate) => {
     failed: tagged('http_req_failed'),
     iterations: tagged('iterations'),
     elapsed: tagged('breaking_point_steady_elapsed'),
+    start: tagged('breaking_point_steady_start'),
   };
 };
 
@@ -88,15 +96,37 @@ const stepStatus = ({ reached, apiFailed, achievedRatio }) => {
   return achievedRatio !== null && achievedRatio < KEPT_UP_RATIO ? 'k6_shortfall' : 'ok';
 };
 
+// pidstat's sample at time T covers the second before it, so a steady phase
+// from startMs, seconds long, has the samples timed after startMs + 1 s up to
+// its end.
+const stepCpu = (monitor, startMs, seconds) => {
+  const empty = { api_main_thread_cpu_pct: null, k6_cpu_pct: null, cpu_seconds_sampled: 0 };
+  if (monitor === null || startMs === undefined || seconds <= 0) {
+    return empty;
+  }
+  const inStep = (sample) => sample.timeMs >= startMs + 1000 && sample.timeMs <= startMs + seconds * 1000;
+  const k6 = monitor.k6Samples.filter(inStep);
+  const apiMain = monitor.apiMainSamples.filter(inStep);
+  if (k6.length < MIN_STEP_SAMPLES || apiMain.length < MIN_STEP_SAMPLES) {
+    return empty;
+  }
+  return {
+    api_main_thread_cpu_pct: round(average(apiMain.map((sample) => sample.cpu)), 0),
+    k6_cpu_pct: round(average(k6.map((sample) => sample.cpu)), 0),
+    cpu_seconds_sampled: apiMain.length,
+  };
+};
+
 // The achieved rate is the steady-phase iteration count over how far into its
 // steady phase the step got, so it is known for a step the run stopped in too.
-const toStep = (metrics, rate) => {
-  const { duration, failed, iterations, elapsed } = stepMetrics(metrics, rate);
+const toStep = (metrics, monitor, rate) => {
+  const { duration, failed, iterations, elapsed, start } = stepMetrics(metrics, rate);
   const count = iterations?.count ?? 0;
   const reached = count > 0;
   const elapsedSeconds = elapsed?.max ?? 0;
   const achievedRps = reached && elapsedSeconds > 0 ? count / elapsedSeconds : null;
   const achievedRatio = achievedRps === null ? null : achievedRps / rate;
+  const cpu = stepCpu(monitor, start?.value, elapsedSeconds);
   return {
     target_rps: rate,
     status: stepStatus({ reached, apiFailed: isCrossed(duration) || isCrossed(failed), achievedRatio }),
@@ -107,6 +137,9 @@ const toStep = (metrics, rate) => {
     p95_ms: reached ? round(duration?.['p(95)'], 2) : null,
     median_ms: reached ? round(duration?.med, 2) : null,
     failed_rate: reached ? round(failed?.value, 4) : null,
+    api_main_thread_cpu_pct: cpu.api_main_thread_cpu_pct,
+    k6_cpu_pct: cpu.k6_cpu_pct,
+    cpu_seconds_sampled: cpu.cpu_seconds_sampled,
   };
 };
 
@@ -129,6 +162,22 @@ const finalCpu = ({ k6Rows, apiMainRows }, sampleCount) => {
   };
 };
 
+const secondsOfDay = (time) => {
+  const [hours, minutes, seconds] = time.split(':').map(Number);
+  return hours * 3600 + minutes * 60 + seconds;
+};
+
+// pidstat times are local times of day. A run is shorter than a day, so a
+// time earlier than when monitoring started is on the next day.
+const timedSamples = (rows, start, cpuColumn) => {
+  const startSeconds = secondsOfDay(start.time);
+  const dayMs = (offset) => new Date(start.year, start.month - 1, start.day + offset).getTime();
+  return rows.map((row) => {
+    const seconds = secondsOfDay(row[0]);
+    return { timeMs: dayMs(seconds < startSeconds ? 1 : 0) + seconds * 1000, cpu: Number(row[cpuColumn]) };
+  });
+};
+
 const readMonitor = (runDir) => {
   const path = (file) => join(runDir, file);
   if (!['run.txt', 'pidstat.log', 'pidstat-threads.log'].every((file) => existsSync(path(file)))) {
@@ -137,9 +186,18 @@ const readMonitor = (runDir) => {
   const runTxt = readFileSync(path('run.txt'), 'utf8');
   const field = (name) => runTxt.match(new RegExp(`^${name}: (\\d+)$`, 'm'))?.[1];
   const [apiPid, k6Pid] = [field('api_pid'), field('k6_pid')];
+  const startMatch = runTxt.match(/^start: (\d{4})-(\d\d)-(\d\d) (\d\d:\d\d:\d\d)$/m);
+  const k6Rows = pidstatRows(readFileSync(path('pidstat.log'), 'utf8')).filter((row) => row[2] === k6Pid);
+  const apiMainRows = pidstatRows(readFileSync(path('pidstat-threads.log'), 'utf8')).filter((row) => row[3] === apiPid);
+  const start =
+    startMatch === null
+      ? null
+      : { year: Number(startMatch[1]), month: Number(startMatch[2]), day: Number(startMatch[3]), time: startMatch[4] };
   return {
-    k6Rows: pidstatRows(readFileSync(path('pidstat.log'), 'utf8')).filter((row) => row[2] === k6Pid),
-    apiMainRows: pidstatRows(readFileSync(path('pidstat-threads.log'), 'utf8')).filter((row) => row[3] === apiPid),
+    k6Rows,
+    apiMainRows,
+    k6Samples: start === null ? [] : timedSamples(k6Rows, start, 7),
+    apiMainSamples: start === null ? [] : timedSamples(apiMainRows, start, 8),
   };
 };
 
@@ -204,7 +262,7 @@ const toResult = (summary, monitor, k6CoreCount) => {
   if (rates.length === 0) {
     return result;
   }
-  const steps = rates.map((rate) => toStep(metrics, rate));
+  const steps = rates.map((rate) => toStep(metrics, monitor, rate));
   return {
     ...result,
     breaking_point: { verdict: toVerdict(steps, monitor, k6CoreCount), kept_up_ratio: KEPT_UP_RATIO, steps },

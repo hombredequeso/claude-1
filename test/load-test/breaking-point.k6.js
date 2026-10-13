@@ -35,9 +35,11 @@
 // A CPU-bound k6 falls short of the target rate without counting drops, so
 // each step's steady-phase iteration count, and how far into its steady
 // phase the run got (the breaking_point_steady_elapsed gauge), are also
-// reported in the summary through always-passing thresholds.
+// reported in the summary through always-passing thresholds. So is when
+// each step's steady phase started (the breaking_point_steady_start gauge, in
+// ms since the epoch), so CPU recorded by monitor.sh can be matched to steps.
 // test/load-test/scripts/run-result.mjs turns these into each step's achieved
-// rate, and a verdict on whether the API or k6 was the limit.
+// rate and CPU use, and a verdict on whether the API or k6 was the limit.
 //
 // Overridable with env vars, e.g. `k6 run -e STEP_RPS=500 test/load-test/breaking-point.k6.js`:
 //   START_RPS        iterations/s on the first step         (default 100)
@@ -87,6 +89,8 @@ const stepStages = (rate) => [
 
 // Seconds into the current step's steady phase, set by each steady iteration.
 const steadyElapsed = new Gauge('breaking_point_steady_elapsed');
+// When the current step's steady phase started, in ms since the epoch.
+const steadyStart = new Gauge('breaking_point_steady_start');
 
 const stepThresholds = (rate) => ({
   [`http_req_failed{target_rps:${rate},step_phase:steady}`]: [
@@ -96,9 +100,10 @@ const stepThresholds = (rate) => ({
     { threshold: `p(95)<${MAX_P95_MS}`, abortOnFail: true, delayAbortEval: '5s' },
   ],
   // These always pass: they only make the step's steady-phase iteration count
-  // and elapsed time appear in the summary.
+  // and its steady phase's start and elapsed time appear in the summary.
   [`iterations{target_rps:${rate},step_phase:steady}`]: ['count>=0'],
   [`breaking_point_steady_elapsed{target_rps:${rate},step_phase:steady}`]: ['value>=0'],
+  [`breaking_point_steady_start{target_rps:${rate},step_phase:steady}`]: ['value>=0'],
 });
 
 export const options = {
@@ -122,18 +127,20 @@ const currentStep = () => {
   const elapsedSeconds = (Date.now() - exec.scenario.startTime) / 1000;
   const step = Math.min(Math.floor(elapsedSeconds / STEP_SECONDS), stepRates.length - 1);
   const secondsIntoStep = elapsedSeconds - step * STEP_SECONDS;
-  return { rate: stepRates[step], secondsIntoStep };
+  const steadyStartMs = exec.scenario.startTime + (step * STEP_SECONDS + SETTLE_SECONDS) * 1000;
+  return { rate: stepRates[step], secondsIntoStep, steadyStartMs };
 };
 
 export const setup = () => workload.seed(SEED);
 
 export default (seedData) => {
-  const { rate, secondsIntoStep } = currentStep();
+  const { rate, secondsIntoStep, steadyStartMs } = currentStep();
   const steady = secondsIntoStep >= SETTLE_SECONDS;
   exec.vu.metrics.tags.target_rps = rate;
   exec.vu.metrics.tags.step_phase = steady ? 'steady' : 'settling';
   if (steady) {
     steadyElapsed.add(secondsIntoStep - SETTLE_SECONDS);
+    steadyStart.add(steadyStartMs);
   }
   workload.iteration(seedData);
 };
