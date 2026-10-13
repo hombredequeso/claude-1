@@ -1,13 +1,11 @@
 // k6 breaking-point test: steps the request rate up until the API starts to
 // fail, using the project's workload (the request mix named in
-// .claude/diagnostics.json; set WORKLOAD to its path when running by hand).
+// .claude/diagnostics.json).
 //
-// Run against the built API, restarted before each run so the in-memory store
-// starts empty, with the API and k6 pinned to separate cores:
-//   pnpm build && taskset -c 0,1 pnpm start
-//   test/load-test/monitor.sh                      # in a second terminal
-//   K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=test/load-test/reports/breaking-point.html \
-//     taskset -c 2,3 k6 run test/load-test/breaking-point.k6.js
+// Run with test/load-test/run.sh, which builds and starts a fresh copy of the
+// API for each run, pins the API and k6 to separate cores, and records CPU
+// and memory alongside k6's results. Running by hand needs BASE_URL and
+// WORKLOAD (see lib/workload.js).
 //
 // The rate is an open model (ramping-arrival-rate): iterations start on
 // schedule whether or not earlier ones have finished, so a slowing API can't
@@ -42,7 +40,6 @@
 // rate, and a verdict on whether the API or k6 was the limit.
 //
 // Overridable with env vars, e.g. `k6 run -e STEP_RPS=500 test/load-test/breaking-point.k6.js`:
-//   BASE_URL         API base URL                           (default http://localhost:3000)
 //   START_RPS        iterations/s on the first step         (default 100)
 //   STEP_RPS         iterations/s added each step           (default 250)
 //   MAX_RPS          highest target rate                    (default 5000)
@@ -76,10 +73,7 @@ if (SETTLE_SECONDS < STEP_RAMP_SECONDS || SETTLE_SECONDS >= STEP_SECONDS) {
   );
 }
 
-const workload = loadWorkload({
-  baseUrl: __ENV.BASE_URL || 'http://localhost:3000',
-  timeout: __ENV.TIMEOUT || '5s',
-});
+const workload = loadWorkload({ timeout: __ENV.TIMEOUT || '5s' });
 
 const stepRates = Array.from(
   { length: Math.floor((MAX_RPS - START_RPS) / STEP_RPS) + 1 },
